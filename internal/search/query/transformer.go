@@ -22,6 +22,7 @@ func SubstituteAliases(nodes []Node) []Node {
 		"until":    FieldBefore,
 		"m":        FieldMessage,
 		"msg":      FieldMessage,
+		"revision": FieldRevision,
 	}
 	return MapParameter(nodes, func(field, value string, negated bool, annotation Annotation) Node {
 		if field == "content" {
