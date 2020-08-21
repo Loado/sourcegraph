@@ -318,8 +318,33 @@ func validateField(field, value string, negated bool, seen map[string]struct{}) 
 		FieldTimeout,
 		FieldCombyRule:
 		return satisfies(isSingular, isNotNegated)
+	case
+		FieldRev:
+		return satisfies(isSingular, isNotNegated)
 	default:
 		return isUnrecognizedField()
+	}
+	return nil
+}
+
+// A query is invalid if it contains a rev: filter and a repo is specified with @.
+func validateRepoRevPair(nodes []Node) error {
+	var seenRepoWithCommit bool
+	VisitField(nodes, FieldRepo, func(value string, negated bool, _ Annotation) {
+		if !negated && strings.ContainsRune(value, '@') {
+			seenRepoWithCommit = true
+		}
+	})
+	revSpecified := exists(nodes, func(node Node) bool {
+		n, ok := node.(Parameter)
+		if ok && n.Field == FieldRev {
+			return true
+		}
+		return false
+	})
+	if seenRepoWithCommit && revSpecified {
+		return errors.New("invalid syntax. You have specified both @ and rev: for a" +
+			" repo: filter and I don't know how to interpret this. Remove either @ or rev: and try again")
 	}
 	return nil
 }
@@ -353,5 +378,6 @@ func validate(nodes []Node) error {
 	if err != nil {
 		return err
 	}
+	err = validateRepoRevPair(nodes)
 	return err
 }

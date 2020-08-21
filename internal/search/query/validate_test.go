@@ -68,6 +68,14 @@ func TestAndOrQuery_Validation(t *testing.T) {
 			input: "repo:foo repo:bar",
 			want:  "filter repo: seen more than once. If you meant to search any of these repos, use the | operator, like repo:one|two",
 		},
+		{
+			input: "repo:foo rev:a rev:b",
+			want:  `field "rev" may not be used more than once`,
+		},
+		{
+			input: "repo:foo@a rev:b",
+			want:  "invalid syntax. You have specified both @ and rev: for a repo: filter and I don't know how to interpret this. Remove either @ or rev: and try again",
+		},
 	}
 	for _, c := range cases {
 		t.Run("validate and/or query", func(t *testing.T) {
