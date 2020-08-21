@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/pkg/errors"
 	"github.com/src-d/enry/v2"
 )
 
@@ -317,8 +318,39 @@ func validateField(field, value string, negated bool, seen map[string]struct{}) 
 		FieldTimeout,
 		FieldCombyRule:
 		return satisfies(isSingular, isNotNegated)
+	case
+		FieldRev:
+		return satisfies(isSingular, isNotNegated)
 	default:
 		return isUnrecognizedField()
+	}
+	return nil
+}
+
+// A query is invalid if it contains a rev: filter and a repo is specified with @.
+func validateRepoRevPair(nodes []Node) error {
+	var seenRepoWithCommit, seenNegatedRepo bool
+	VisitField(nodes, FieldRepo, func(value string, negated bool, _ Annotation) {
+		if negated {
+			seenNegatedRepo = true
+		}
+		if strings.ContainsRune(value, '@') {
+			seenRepoWithCommit = true
+		}
+	})
+	revSpecified := exists(nodes, func(node Node) bool {
+		n, ok := node.(Parameter)
+		if ok && n.Field == FieldRev {
+			return true
+		}
+		return false
+	})
+	if seenRepoWithCommit && revSpecified {
+		return errors.New("invalid syntax. You have specified @ and rev: for the same" +
+			" repo: filter and I don't know how to interpret this. Remove either @ or rev: and try again")
+	}
+	if seenRepoWithCommit && seenNegatedRepo {
+		return errors.New("exact commit specified for one repo and another repo filter is negated")
 	}
 	return nil
 }
@@ -341,5 +373,9 @@ func validate(nodes []Node) error {
 			_, err = regexp.Compile(value)
 		}
 	})
+	if err != nil {
+		return err
+	}
+	err = validateRepoRevPair(nodes)
 	return err
 }
